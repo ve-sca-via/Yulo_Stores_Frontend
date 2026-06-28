@@ -145,7 +145,7 @@ export default function QrManagement() {
 
   async function generate(event) {
     event.preventDefault();
-    if (!tableNumber.trim()) return;
+    if (!tableNumber.trim() || !restaurantId) return;
     try {
       let table = tables.find((t) => String(t.identifier) === String(tableNumber.trim()));
       if (!table) {

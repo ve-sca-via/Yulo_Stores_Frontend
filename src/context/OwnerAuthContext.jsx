@@ -30,6 +30,11 @@ export function OwnerAuthProvider({ children }) {
   const [user, setUser] = useState(() => readProfile());
   const [restaurant, setRestaurant] = useState(() => readRestaurant());
   const [loading, setLoading] = useState(true);
+  // Tracks when an access token is actually available in memory.
+  // setAccessToken() writes to a plain variable — not React state — so without
+  // this flag, the restaurant-fetch effect would never re-run after a token
+  // refresh on page reload (the effect deps [user, restaurant] don't change).
+  const [tokenReady, setTokenReady] = useState(() => !!getAccessToken());
 
   // Persist restaurant to localStorage whenever it changes
   useEffect(() => {
@@ -42,14 +47,19 @@ export function OwnerAuthProvider({ children }) {
     else localStorage.removeItem(PROFILE_KEY);
   }, [user]);
 
-  // On mount: if profile exists but token is gone (page refresh), silently refresh
+  // On mount: if profile exists but token is gone (page refresh), silently refresh.
+  // Sets tokenReady so the restaurant-fetch effect below re-runs once the token lands.
   useEffect(() => {
     if (user && !getAccessToken()) {
       authApi.refresh()
-        .then(({ data }) => setAccessToken(data.data.accessToken))
+        .then(({ data }) => {
+          setAccessToken(data.data.accessToken);
+          setTokenReady(true);
+        })
         .catch(() => {
           setUser(null);
           setRestaurant(null);
+          setTokenReady(false);
           localStorage.removeItem(PROFILE_KEY);
           localStorage.removeItem(RESTAURANT_KEY);
         })
@@ -60,9 +70,10 @@ export function OwnerAuthProvider({ children }) {
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   // After we have a token and no restaurant yet, fetch the owner's restaurants
-  // and pick the first one. This covers both initial login and page refresh.
+  // and pick the first one. Depends on tokenReady so it re-runs after the
+  // token refresh above completes (not just when user/restaurant state changes).
   useEffect(() => {
-    if (!user || !getAccessToken() || restaurant) return;
+    if (!user || !tokenReady || restaurant) return;
 
     ownerApi.listRestaurants()
       .then(({ data }) => {
@@ -70,7 +81,7 @@ export function OwnerAuthProvider({ children }) {
         if (list.length > 0) setRestaurant(list[0]);
       })
       .catch(() => { /* non-critical — dashboard will handle empty state */ });
-  }, [user, restaurant]);
+  }, [user, tokenReady, restaurant]);
 
   // ── fetchRestaurants: exposed so owner dashboard can trigger a re-fetch
   const fetchRestaurants = useCallback(async () => {
@@ -84,8 +95,8 @@ export function OwnerAuthProvider({ children }) {
     const { data } = await authApi.login({ email, password });
     const { user: u, accessToken } = data.data;
     setAccessToken(accessToken);
+    setTokenReady(true);
     setUser(u);
-    // Fetch restaurants immediately after login
     try {
       const { data: rData } = await ownerApi.listRestaurants();
       const list = rData.data.restaurants ?? [];
@@ -105,6 +116,7 @@ export function OwnerAuthProvider({ children }) {
   const logout = useCallback(async () => {
     try { await authApi.logout(); } catch { /* silent */ }
     setAccessToken(null);
+    setTokenReady(false);
     setUser(null);
     setRestaurant(null);
   }, []);
@@ -114,7 +126,7 @@ export function OwnerAuthProvider({ children }) {
       value={{
         user,
         restaurant,
-        restaurantId: restaurant?._id ?? null,
+        restaurantId: restaurant?._id ?? restaurant?.id ?? null,
         loading,
         login,
         signup,
