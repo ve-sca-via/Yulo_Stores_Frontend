@@ -1,0 +1,16 @@
+{
+  "buildCommand": "npm run build",
+  "outputDirectory": "dist",
+  "framework": "vite",
+  "rewrites": [
+    { "source": "/api/:path*", "destination": "$BACKEND_URL/api/:path*" },
+    { "source": "/chef/:path*", "destination": "$BACKEND_URL/chef/:path*" },
+    { "source": "/waiter/:path*", "destination": "$BACKEND_URL/waiter/:path*" },
+    {
+      "source": "/restaurant_owner/:path*",
+      "destination": "$BACKEND_URL/restaurant_owner/:path*"
+    },
+    { "source": "/health", "destination": "$BACKEND_URL/health" },
+    { "source": "/(.*)", "destination": "/index.html" }
+  ]
+}
