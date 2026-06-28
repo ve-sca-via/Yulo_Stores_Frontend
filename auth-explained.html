@@ -1,0 +1,1184 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>YuloStores — Auth Layer Explained</title>
+  <style>
+    /* ── Reset & Base ─────────────────────────────────────────────── */
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg:       #0f1117;
+      --surface:  #1a1d27;
+      --surface2: #21263a;
+      --border:   #2e3348;
+      --text:     #e2e8f0;
+      --muted:    #94a3b8;
+      --green:    #22c55e;
+      --red:      #ef4444;
+      --blue:     #3b82f6;
+      --yellow:   #eab308;
+      --purple:   #a855f7;
+      --orange:   #f97316;
+      --teal:     #14b8a6;
+      --accent:   #6366f1;
+    }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      line-height: 1.7;
+      font-size: 15px;
+    }
+
+    /* ── Layout ───────────────────────────────────────────────────── */
+    .page { max-width: 960px; margin: 0 auto; padding: 48px 24px 120px; }
+
+    /* ── TOC Sidebar (sticky) ─────────────────────────────────────── */
+    .layout { display: flex; gap: 40px; align-items: flex-start; }
+    .toc {
+      width: 220px;
+      flex-shrink: 0;
+      position: sticky;
+      top: 24px;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 20px;
+      font-size: 13px;
+    }
+    .toc h3 { color: var(--muted); font-size: 11px; text-transform: uppercase;
+               letter-spacing: .08em; margin-bottom: 12px; }
+    .toc a { display: block; color: var(--muted); text-decoration: none;
+              padding: 4px 0; transition: color .15s; }
+    .toc a:hover { color: var(--text); }
+    .toc a.sub { padding-left: 12px; font-size: 12px; }
+    .content { flex: 1; min-width: 0; }
+
+    @media (max-width: 720px) {
+      .layout { flex-direction: column; }
+      .toc { width: 100%; position: static; }
+    }
+
+    /* ── Typography ───────────────────────────────────────────────── */
+    h1 { font-size: 2rem; font-weight: 800; line-height: 1.2; margin-bottom: 8px; }
+    h2 { font-size: 1.4rem; font-weight: 700; margin: 56px 0 20px;
+         padding-top: 56px; border-top: 1px solid var(--border); }
+    h3 { font-size: 1.05rem; font-weight: 600; margin: 32px 0 12px; color: var(--text); }
+    h4 { font-size: .9rem; font-weight: 600; margin: 20px 0 8px; color: var(--muted); }
+    p  { margin-bottom: 14px; color: #cbd5e1; }
+    ul, ol { padding-left: 20px; margin-bottom: 14px; }
+    li { margin-bottom: 6px; color: #cbd5e1; }
+    strong { color: var(--text); font-weight: 600; }
+    code {
+      font-family: "JetBrains Mono", "Fira Code", Menlo, monospace;
+      font-size: .85em;
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      border-radius: 4px;
+      padding: 1px 6px;
+      color: #c4b5fd;
+    }
+    a { color: var(--accent); text-decoration: none; }
+    a:hover { text-decoration: underline; }
+
+    /* ── Hero ─────────────────────────────────────────────────────── */
+    .hero {
+      background: linear-gradient(135deg, #1e1b4b 0%, #0f172a 100%);
+      border: 1px solid #312e81;
+      border-radius: 16px;
+      padding: 40px;
+      margin-bottom: 48px;
+      position: relative;
+      overflow: hidden;
+    }
+    .hero::before {
+      content: "";
+      position: absolute;
+      top: -60px; right: -60px;
+      width: 200px; height: 200px;
+      background: radial-gradient(circle, rgba(99,102,241,.3) 0%, transparent 70%);
+      border-radius: 50%;
+    }
+    .hero .badge {
+      display: inline-block;
+      background: rgba(99,102,241,.2);
+      border: 1px solid rgba(99,102,241,.4);
+      color: #a5b4fc;
+      border-radius: 100px;
+      padding: 4px 12px;
+      font-size: 12px;
+      font-weight: 600;
+      margin-bottom: 16px;
+      letter-spacing: .04em;
+    }
+    .hero h1 { color: #fff; }
+    .hero p { color: #94a3b8; font-size: 1rem; margin-bottom: 0; }
+
+    /* ── Code Block ───────────────────────────────────────────────── */
+    .code-block {
+      background: #0d1117;
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      margin: 20px 0;
+      overflow: hidden;
+    }
+    .code-block .code-header {
+      background: var(--surface2);
+      padding: 10px 16px;
+      font-size: 12px;
+      font-weight: 600;
+      color: var(--muted);
+      border-bottom: 1px solid var(--border);
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .code-block .code-header .dot {
+      width: 8px; height: 8px;
+      border-radius: 50%;
+      background: var(--muted);
+      opacity: .4;
+    }
+    .code-block pre {
+      padding: 20px;
+      overflow-x: auto;
+      font-family: "JetBrains Mono", "Fira Code", Menlo, monospace;
+      font-size: 13px;
+      line-height: 1.8;
+    }
+    /* Syntax highlight tokens */
+    .k  { color: #c792ea; }   /* keyword  */
+    .s  { color: #c3e88d; }   /* string   */
+    .c  { color: #546e7a; font-style: italic; } /* comment */
+    .fn { color: #82aaff; }   /* function */
+    .n  { color: #f8f8f2; }   /* normal   */
+    .num{ color: #f78c6c; }   /* number   */
+    .op { color: #89ddff; }   /* operator */
+    .cls{ color: #ffcb6b; }   /* class    */
+    .prop{color: #f07178; }   /* property */
+
+    /* ── Cards ────────────────────────────────────────────────────── */
+    .card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 20px 24px;
+      margin: 16px 0;
+    }
+    .card-title {
+      font-size: .8rem;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: .06em;
+      margin-bottom: 12px;
+    }
+
+    /* ── Good / Bad Columns ───────────────────────────────────────── */
+    .compare { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin: 20px 0; }
+    @media (max-width: 600px) { .compare { grid-template-columns: 1fr; } }
+    .good { border-color: #166534; background: #052e16; }
+    .bad  { border-color: #991b1b; background: #2d0a0a; }
+    .good .card-title { color: var(--green); }
+    .bad  .card-title { color: var(--red); }
+    .good li::marker { color: var(--green); }
+    .bad  li::marker { color: var(--red); }
+
+    /* ── Flow Diagram ─────────────────────────────────────────────── */
+    .flow {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 24px;
+      margin: 20px 0;
+    }
+    .flow-row {
+      display: flex;
+      align-items: center;
+      gap: 0;
+      margin: 8px 0;
+      flex-wrap: wrap;
+    }
+    .flow-box {
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 8px 14px;
+      font-size: 13px;
+      font-weight: 500;
+      white-space: nowrap;
+    }
+    .flow-arrow {
+      color: var(--muted);
+      padding: 0 10px;
+      font-size: 18px;
+      flex-shrink: 0;
+    }
+    .flow-box.blue   { border-color: #1d4ed8; background: #1e3a5f; color: #93c5fd; }
+    .flow-box.green  { border-color: #166534; background: #052e16; color: #86efac; }
+    .flow-box.purple { border-color: #7e22ce; background: #2d1256; color: #d8b4fe; }
+    .flow-box.orange { border-color: #c2410c; background: #431407; color: #fdba74; }
+    .flow-box.teal   { border-color: #0f766e; background: #042f2e; color: #5eead4; }
+    .flow-box.red    { border-color: #991b1b; background: #2d0a0a; color: #fca5a5; }
+
+    /* ── Callout ──────────────────────────────────────────────────── */
+    .callout {
+      display: flex;
+      gap: 14px;
+      border-radius: 12px;
+      padding: 16px 20px;
+      margin: 20px 0;
+      border: 1px solid;
+    }
+    .callout .icon { font-size: 20px; flex-shrink: 0; line-height: 1.5; }
+    .callout.info  { background: #1e3a5f; border-color: #1d4ed8; }
+    .callout.warn  { background: #431407; border-color: #c2410c; }
+    .callout.tip   { background: #052e16; border-color: #166534; }
+    .callout p { margin: 0; font-size: 14px; }
+
+    /* ── Step List ────────────────────────────────────────────────── */
+    .steps { counter-reset: steps; }
+    .step {
+      display: flex;
+      gap: 20px;
+      margin: 20px 0;
+      padding-bottom: 20px;
+      border-bottom: 1px solid var(--border);
+    }
+    .step:last-child { border-bottom: none; }
+    .step-num {
+      counter-increment: steps;
+      width: 36px; height: 36px;
+      background: var(--accent);
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-weight: 700;
+      font-size: 14px;
+      flex-shrink: 0;
+      color: white;
+    }
+    .step-num::before { content: counter(steps); }
+    .step-body { flex: 1; }
+    .step-body h4 { margin-top: 6px; color: var(--text); font-size: 1rem; }
+
+    /* ── File badge ───────────────────────────────────────────────── */
+    .file-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      border-radius: 100px;
+      padding: 4px 12px;
+      font-size: 12px;
+      font-family: "JetBrains Mono", monospace;
+      color: var(--muted);
+      margin-bottom: 16px;
+    }
+
+    /* ── Tag ─────────────────────────────────────────────────────── */
+    .tag {
+      display: inline-block;
+      border-radius: 100px;
+      padding: 2px 10px;
+      font-size: 11px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: .04em;
+      margin-right: 6px;
+    }
+    .tag.new    { background: #1e3a5f; color: #93c5fd; }
+    .tag.key    { background: #2d1256; color: #d8b4fe; }
+    .tag.secure { background: #052e16; color: #86efac; }
+
+    /* ── Summary Table ────────────────────────────────────────────── */
+    table { width: 100%; border-collapse: collapse; margin: 16px 0; font-size: 13px; }
+    th {
+      background: var(--surface2);
+      color: var(--muted);
+      font-size: 11px;
+      text-transform: uppercase;
+      letter-spacing: .06em;
+      padding: 10px 14px;
+      text-align: left;
+      border-bottom: 1px solid var(--border);
+    }
+    td { padding: 10px 14px; border-bottom: 1px solid var(--border); color: #cbd5e1; }
+    tr:last-child td { border-bottom: none; }
+    td code { font-size: .8em; }
+
+    /* ── Scrollbar ────────────────────────────────────────────────── */
+    ::-webkit-scrollbar { width: 6px; height: 6px; }
+    ::-webkit-scrollbar-track { background: var(--surface); }
+    ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+  </style>
+</head>
+<body>
+<div class="page">
+
+  <!-- Hero -->
+  <div class="hero">
+    <div class="badge">YuloStores — Learning Guide</div>
+    <h1>Auth Layer — Kya Banaya, Kaise Banaya, Kyun Banaya</h1>
+    <p>A complete breakdown of the authentication architecture built for the YuloStores restaurant platform. Every decision explained in simple terms.</p>
+  </div>
+
+  <div class="layout">
+    <!-- TOC -->
+    <nav class="toc">
+      <h3>Contents</h3>
+      <a href="#problem">1. Problem kya tha?</a>
+      <a href="#overview">2. Overview — Kya Banaya</a>
+      <a href="#axios">3. api/client.js</a>
+      <a href="#auth-api">4. api/auth.api.js</a>
+      <a href="#owner-ctx">5. OwnerAuthContext</a>
+      <a href="#staff-ctx">6. StaffAuthContext</a>
+      <a href="#login-screens">7. Login Screens</a>
+      <a href="#protected">8. Protected Routes</a>
+      <a href="#main">9. main.jsx Update</a>
+      <a href="#flow">10. Poora Flow</a>
+      <a href="#practices">11. Good vs Bad Practices</a>
+      <a href="#concepts">12. Key Concepts</a>
+      <a href="#next">13. Aage Kya Sikhna</a>
+    </nav>
+
+    <div class="content">
+
+      <!-- ─── 1. PROBLEM ────────────────────────────────────────────── -->
+      <h2 id="problem">1. Problem kya tha?</h2>
+
+      <p>
+        Pehle project mein authentication ka koi proper structure nahi tha. Sab kuch <code>App.jsx</code>
+        (3500+ line ki ek file) mein thusa hua tha. Kuch problems thi:
+      </p>
+
+      <div class="compare">
+        <div class="card bad">
+          <div class="card-title">❌ Pehle kya tha</div>
+          <ul>
+            <li>Token <strong>localStorage</strong> mein store hota tha — hacker steal kar sakta hai (XSS attack)</li>
+            <li>Login screen har portal mein alag-alag inline thi — duplicate code</li>
+            <li>API calls directly <code>fetch()</code> se — koi interceptor nahi, koi auto-refresh nahi</li>
+            <li>Legacy endpoints jaise <code>/restaurant_owner/login</code> — jo server pe exist hi nahi karte</li>
+            <li>Koi role-based route protection nahi — koi bhi kisi bhi page pe ja sakta tha</li>
+            <li>Chef aur Waiter dono ek hi login se — no separation</li>
+          </ul>
+        </div>
+        <div class="card good">
+          <div class="card-title">✅ Ab kya hai</div>
+          <ul>
+            <li>Access token <strong>memory</strong> mein — safer</li>
+            <li>Alag-alag clean login pages per role</li>
+            <li>Axios with interceptors — auto token refresh</li>
+            <li>Real backend endpoints use ho rahe hain</li>
+            <li>Protected routes — unauthenticated user redirect hota hai</li>
+            <li>Waiter aur Chef ke liye alag staffToken flow</li>
+          </ul>
+        </div>
+      </div>
+
+      <!-- ─── 2. OVERVIEW ───────────────────────────────────────────── -->
+      <h2 id="overview">2. Overview — Kya Banaya</h2>
+
+      <p>Hum ne <strong>4 cheezein</strong> banai hain jo milke kaam karti hain:</p>
+
+      <table>
+        <thead>
+          <tr>
+            <th>File</th>
+            <th>Type</th>
+            <th>Kaam Kya Hai</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td><code>api/client.js</code></td>
+            <td><span class="tag new">API Layer</span></td>
+            <td>Axios instance — sare HTTP requests yahaan se jaate hain</td>
+          </tr>
+          <tr>
+            <td><code>api/auth.api.js</code></td>
+            <td><span class="tag new">API Layer</span></td>
+            <td>Auth ke specific functions — login, logout, refresh</td>
+          </tr>
+          <tr>
+            <td><code>context/OwnerAuthContext.jsx</code></td>
+            <td><span class="tag key">State</span></td>
+            <td>Owner ka login state — poori app mein available</td>
+          </tr>
+          <tr>
+            <td><code>context/StaffAuthContext.jsx</code></td>
+            <td><span class="tag key">State</span></td>
+            <td>Staff (waiter/chef) ka login state</td>
+          </tr>
+          <tr>
+            <td><code>screens/auth/OwnerLoginPage.jsx</code></td>
+            <td><span class="tag new">UI</span></td>
+            <td>Owner login/signup screen — <code>/owner/login</code></td>
+          </tr>
+          <tr>
+            <td><code>screens/auth/StaffLoginPage.jsx</code></td>
+            <td><span class="tag new">UI</span></td>
+            <td>Staff PIN login screen — <code>/staff/login</code></td>
+          </tr>
+          <tr>
+            <td><code>components/OwnerRoute.jsx</code></td>
+            <td><span class="tag secure">Guard</span></td>
+            <td>Owner pages protect karta hai</td>
+          </tr>
+          <tr>
+            <td><code>components/StaffRoute.jsx</code></td>
+            <td><span class="tag secure">Guard</span></td>
+            <td>Staff pages protect karta hai + role check</td>
+          </tr>
+        </tbody>
+      </table>
+
+      <!-- ─── 3. AXIOS CLIENT ───────────────────────────────────────── -->
+      <h2 id="axios">3. <code>api/client.js</code> — The HTTP Engine</h2>
+
+      <div class="file-badge">📄 src/api/client.js</div>
+
+      <p>
+        <strong>Axios</strong> ek popular HTTP library hai. Simple <code>fetch()</code> ki tarah kaam karta hai
+        lekin zyada features ke saath. Hamne ek <strong>single Axios instance</strong> banaya hai poori app ke liye.
+      </p>
+
+      <div class="callout info">
+        <span class="icon">💡</span>
+        <p><strong>Instance kyun?</strong> Agar aap seedha <code>axios.get()</code> use karo, toh har request mein baseURL, headers sab manually likhna padega. Instance banao toh ek baar set karo, sab jagah automatically lagta hai.</p>
+      </div>
+
+      <h3>3.1 Token Storage — Sabse Important Security Decision</h3>
+
+      <div class="compare">
+        <div class="card bad">
+          <div class="card-title">❌ Bad Practice — localStorage</div>
+          <div class="code-block">
+            <div class="code-header"><div class="dot"></div>Pehle ka code (insecure)</div>
+            <pre><span class="c">// ❌ GALAT — hacker steal kar sakta hai</span>
+<span class="k">localStorage</span><span class="op">.</span><span class="fn">setItem</span>(<span class="s">"token"</span>, accessToken)
+
+<span class="c">// Koi bhi JS code (even 3rd party)</span>
+<span class="c">// localStorage read kar sakta hai</span>
+<span class="c">// Isko XSS attack kehte hain</span></pre>
+          </div>
+          <ul>
+            <li>JavaScript se accessible — XSS attack mein steal hota hai</li>
+            <li>Browser close hone ke baad bhi rehta hai — unnecessary</li>
+          </ul>
+        </div>
+        <div class="card good">
+          <div class="card-title">✅ Good Practice — Memory</div>
+          <div class="code-block">
+            <div class="code-header"><div class="dot"></div>Hamara code (secure)</div>
+            <pre><span class="c">// ✅ SAHI — sirf RAM mein</span>
+<span class="k">let</span> _accessToken <span class="op">=</span> <span class="k">null</span><span class="op">;</span>
+
+<span class="k">export function</span> <span class="fn">setAccessToken</span>(token) <span class="op">{</span>
+  _accessToken <span class="op">=</span> token<span class="op">;</span>  <span class="c">// memory mein</span>
+<span class="op">}</span>
+
+<span class="c">// Page refresh pe gone — intentional!</span>
+<span class="c">// Isliye refresh token cookie use hoti hai</span></pre>
+          </div>
+          <ul>
+            <li>JavaScript se <em>directly</em> accessible nahi (no XSS risk)</li>
+            <li>Page refresh pe automatically clear — safer lifecycle</li>
+          </ul>
+        </div>
+      </div>
+
+      <h3>3.2 Staff Token — SessionStorage</h3>
+
+      <p>Staff (waiter/chef) ka token <code>sessionStorage</code> mein rakhte hain, <code>localStorage</code> mein nahi:</p>
+
+      <table>
+        <thead>
+          <tr><th>Storage</th><th>Kab Khatam Hota Hai</th><th>Use Case</th></tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td><code>memory</code></td>
+            <td>Page refresh pe</td>
+            <td>Owner access token — short-lived (15 min)</td>
+          </tr>
+          <tr>
+            <td><code>sessionStorage</code></td>
+            <td>Tab close pe</td>
+            <td>Staff token — POS terminal tab open rehti hai</td>
+          </tr>
+          <tr>
+            <td><code>localStorage</code></td>
+            <td>Manually clear hone pe</td>
+            <td>User profile info (sensitive nahi)</td>
+          </tr>
+        </tbody>
+      </table>
+
+      <div class="callout tip">
+        <span class="icon">🎯</span>
+        <p><strong>Real restaurant mein socho:</strong> Ek POS tablet pe waiter ka tab din bhar khula rehta hai. Tab close nahi karte. Tab close hone pe sessionStorage saaf ho jaata hai — security good. Lekin page refresh pe token rehta hai — UX good.</p>
+      </div>
+
+      <h3>3.3 Request Interceptor — Token Automatically Lagana</h3>
+
+      <p>
+        Interceptor ek <strong>middleware</strong> hai — har request ke "beech mein" kuch karta hai.
+        Jaise airport security — har flight se pehle check hota hai.
+      </p>
+
+      <div class="code-block">
+        <div class="code-header"><div class="dot"></div>Request Interceptor — request jane se pehle</div>
+        <pre><span class="n">client</span><span class="op">.</span><span class="n">interceptors</span><span class="op">.</span><span class="n">request</span><span class="op">.</span><span class="fn">use</span>(<span class="op">(</span>config<span class="op">) => {</span>
+  <span class="c">// config.staff = true ho toh staff token,</span>
+  <span class="c">// warna owner token lagao</span>
+  <span class="k">const</span> token <span class="op">=</span> config<span class="op">.</span>_staff
+    <span class="op">?</span> <span class="fn">getStaffToken</span>()
+    <span class="op">:</span> <span class="fn">getAccessToken</span>()<span class="op">;</span>
+
+  <span class="k">if</span> (token) <span class="op">{</span>
+    config<span class="op">.</span>headers<span class="op">.</span>Authorization <span class="op">=</span> <span class="s">`Bearer </span><span class="op">${</span>token<span class="op">}</span><span class="s">`</span><span class="op">;</span>
+  <span class="op">}</span>
+
+  <span class="k">return</span> config<span class="op">;</span>  <span class="c">// modified request server pe jaata hai</span>
+<span class="op">});</span>
+
+<span class="c">// Ab tumhe KABHI likhna nahi padega:</span>
+<span class="c">// headers: { Authorization: `Bearer ${token}` }</span>
+<span class="c">// Sab automatic!</span></pre>
+      </div>
+
+      <h3>3.4 Response Interceptor — Auto Token Refresh</h3>
+
+      <p>
+        Yeh sabse <strong>complex lekin most important</strong> part hai. Samjho — access token sirf 15 minute ke liye valid hai.
+        Kya user 15 minute mein automatically logout ho jaaye? Nahi! Silently refresh hona chahiye.
+      </p>
+
+      <div class="flow">
+        <strong style="display:block;margin-bottom:12px;color:var(--muted);font-size:12px;text-transform:uppercase;letter-spacing:.06em;">Token Expired Flow</strong>
+        <div class="flow-row">
+          <div class="flow-box blue">API Call karo</div>
+          <div class="flow-arrow">→</div>
+          <div class="flow-box red">401 TOKEN_EXPIRED</div>
+          <div class="flow-arrow">→</div>
+          <div class="flow-box orange">Interceptor pakadta hai</div>
+        </div>
+        <div class="flow-row" style="margin-top:8px;padding-left:40px">
+          <div class="flow-arrow" style="transform:rotate(90deg);padding:8px 0">↓</div>
+        </div>
+        <div class="flow-row">
+          <div class="flow-box purple">POST /auth/refresh cookie se</div>
+          <div class="flow-arrow">→</div>
+          <div class="flow-box green">Naya token milta hai</div>
+          <div class="flow-arrow">→</div>
+          <div class="flow-box teal">Original request dobara bhejo</div>
+        </div>
+      </div>
+
+      <div class="code-block">
+        <div class="code-header"><div class="dot"></div>Response Interceptor — simplified explanation</div>
+        <pre><span class="n">client</span><span class="op">.</span><span class="n">interceptors</span><span class="op">.</span><span class="n">response</span><span class="op">.</span><span class="fn">use</span>(
+  <span class="op">(</span>res<span class="op">) =></span> res<span class="op">,</span>   <span class="c">// success: seedha return kar do</span>
+
+  <span class="k">async</span> <span class="op">(</span>err<span class="op">) => {</span>
+    <span class="k">const</span> code <span class="op">=</span> err<span class="op">.</span>response<span class="op">?.</span>data<span class="op">?.</span>code<span class="op">;</span>
+
+    <span class="k">if</span> (code <span class="op">===</span> <span class="s">"TOKEN_EXPIRED"</span>) <span class="op">{</span>
+      <span class="c">// Server ne bola token purana hai</span>
+      <span class="k">const</span> <span class="op">{</span> data <span class="op">}</span> <span class="op">=</span> <span class="k">await</span> axios<span class="op">.</span><span class="fn">post</span>(<span class="s">"/api/auth/refresh"</span>)<span class="op">;</span>
+      <span class="c">// HttpOnly cookie automatically server pe gayi</span>
+      <span class="c">// Server ne naya token diya</span>
+
+      <span class="fn">setAccessToken</span>(data<span class="op">.</span>data<span class="op">.</span>accessToken)<span class="op">;</span>
+
+      <span class="c">// Original request dobara bhejo — user ko pata nahi chalega</span>
+      <span class="k">return</span> <span class="fn">client</span>(originalRequest)<span class="op">;</span>
+    <span class="op">}</span>
+
+    <span class="k">return</span> Promise<span class="op">.</span><span class="fn">reject</span>(err)<span class="op">;</span>
+  <span class="op">}</span>
+)<span class="op">;</span></pre>
+      </div>
+
+      <div class="callout warn">
+        <span class="icon">⚠️</span>
+        <p><strong>Ek edge case:</strong> Agar multiple requests same time pe 401 paaye, toh sab simultaneously refresh try karenge — <em>refresh storm</em>. Hamare code mein <code>_queue</code> aur <code>_refreshing</code> flag se yeh handle kiya hai — pehla request refresh karta hai, baaki wait karte hain.</p>
+      </div>
+
+      <!-- ─── 4. AUTH API ─────────────────────────────────────────────── -->
+      <h2 id="auth-api">4. <code>api/auth.api.js</code> — API Functions</h2>
+
+      <div class="file-badge">📄 src/api/auth.api.js</div>
+
+      <p>
+        Yeh file <strong>sirf API calls define karti hai</strong> — koi logic nahi, koi state nahi.
+        Isko <em>API Module</em> pattern kehte hain.
+      </p>
+
+      <div class="code-block">
+        <div class="code-header"><div class="dot"></div>auth.api.js — poori file</div>
+        <pre><span class="k">import</span> client <span class="k">from</span> <span class="s">"./client"</span><span class="op">;</span>
+
+<span class="k">export const</span> authApi <span class="op">= {</span>
+  <span class="c">// Owner / Customer ke liye</span>
+  <span class="fn">signup</span><span class="op">:</span> (body) <span class="op">=></span> client<span class="op">.</span><span class="fn">post</span>(<span class="s">"/auth/signup"</span><span class="op">,</span> body)<span class="op">,</span>
+  <span class="fn">login</span><span class="op">:</span>  (body) <span class="op">=></span> client<span class="op">.</span><span class="fn">post</span>(<span class="s">"/auth/login"</span><span class="op">,</span> body)<span class="op">,</span>
+  <span class="fn">logout</span><span class="op">:</span> ()     <span class="op">=></span> client<span class="op">.</span><span class="fn">post</span>(<span class="s">"/auth/logout"</span>)<span class="op">,</span>
+  <span class="fn">refresh</span><span class="op">:</span> ()    <span class="op">=></span> client<span class="op">.</span><span class="fn">post</span>(<span class="s">"/auth/refresh"</span>)<span class="op">,</span>
+
+  <span class="c">// Staff ke liye (PIN-based)</span>
+  <span class="fn">staffLogin</span><span class="op">:</span>  (body) <span class="op">=></span> client<span class="op">.</span><span class="fn">post</span>(<span class="s">"/staff/auth/login"</span><span class="op">,</span> body)<span class="op">,</span>
+  <span class="fn">staffLogout</span><span class="op">:</span> ()     <span class="op">=></span> client<span class="op">.</span><span class="fn">post</span>(<span class="s">"/staff/auth/logout"</span><span class="op">,</span> <span class="op">{},</span>
+    <span class="op">{</span> _staff<span class="op">:</span> <span class="k">true</span> <span class="op">}</span>),  <span class="c">// interceptor ko batao staff token use karo</span>
+<span class="op">};</span></pre>
+      </div>
+
+      <div class="callout info">
+        <span class="icon">💡</span>
+        <p><strong>Separation of Concerns</strong> — yeh ek important design principle hai. Har file sirf ek kaam kare. <code>auth.api.js</code> sirf "kaunsa endpoint call karna hai" jaanta hai — "state kya update hogi" yeh nahi jaanta. State ka kaam context ka hai.</p>
+      </div>
+
+      <!-- ─── 5. OWNER CONTEXT ───────────────────────────────────────── -->
+      <h2 id="owner-ctx">5. <code>OwnerAuthContext.jsx</code> — Owner State</h2>
+
+      <div class="file-badge">📄 src/context/OwnerAuthContext.jsx</div>
+
+      <h3>Context kya hota hai?</h3>
+
+      <p>
+        <strong>React Context</strong> ek global state mechanism hai. Problem yeh thi ki React mein by default state
+        sirf parent → child jaati hai (props drilling). Context se aap kisi bhi component se state access kar sakte ho
+        bina props pass kiye.
+      </p>
+
+      <div class="compare">
+        <div class="card bad">
+          <div class="card-title">❌ Bina Context (Props Drilling)</div>
+          <div class="code-block">
+            <pre><span class="c">// App → Layout → Sidebar → Button</span>
+<span class="c">// Har jagah user pass karo</span>
+<span class="op">&lt;</span>Layout user<span class="op">={</span>user<span class="op">}&gt;</span>
+  <span class="op">&lt;</span>Sidebar user<span class="op">={</span>user<span class="op">}&gt;</span>
+    <span class="op">&lt;</span>UserButton user<span class="op">={</span>user<span class="op">} /&gt;</span>
+  <span class="op">&lt;/</span>Sidebar<span class="op">&gt;</span>
+<span class="op">&lt;/</span>Layout<span class="op">&gt;</span></pre>
+          </div>
+        </div>
+        <div class="card good">
+          <div class="card-title">✅ Context se (Direct Access)</div>
+          <div class="code-block">
+            <pre><span class="c">// Kisi bhi component mein directly:</span>
+<span class="k">function</span> <span class="fn">UserButton</span>() <span class="op">{</span>
+  <span class="k">const</span> <span class="op">{</span> user <span class="op">} =</span> <span class="fn">useOwnerAuth</span>()<span class="op">;</span>
+  <span class="c">// No props needed!</span>
+<span class="op">}</span></pre>
+          </div>
+        </div>
+      </div>
+
+      <h3>Page Refresh ka Problem — aur Solution</h3>
+
+      <p>
+        Jab user page refresh karta hai, React state reset ho jaati hai. Token (jo memory mein tha) gone.
+        Lekin user ko fir se login karne ko force nahi karna chahiye — bad UX hai.
+      </p>
+
+      <div class="flow">
+        <strong style="display:block;margin-bottom:12px;color:var(--muted);font-size:12px;text-transform:uppercase;letter-spacing:.06em;">Page Refresh ke baad kya hota hai</strong>
+        <div class="flow-row">
+          <div class="flow-box orange">User refreshes page</div>
+          <div class="flow-arrow">→</div>
+          <div class="flow-box orange">Memory token = null</div>
+          <div class="flow-arrow">→</div>
+          <div class="flow-box blue">Context mounts</div>
+        </div>
+        <div class="flow-row" style="padding-left:40px;margin-top:4px">
+          <div class="flow-arrow" style="transform:rotate(90deg);padding:6px 0">↓</div>
+        </div>
+        <div class="flow-row">
+          <div class="flow-box purple">localStorage mein profile hai?</div>
+          <div class="flow-arrow">→</div>
+          <div class="flow-box teal">POST /auth/refresh (cookie)</div>
+          <div class="flow-arrow">→</div>
+          <div class="flow-box green">Naya token mila!</div>
+        </div>
+      </div>
+
+      <div class="code-block">
+        <div class="code-header"><div class="dot"></div>OwnerAuthContext — auto-refresh on mount</div>
+        <pre><span class="fn">useEffect</span>(<span class="op">() => {</span>
+  <span class="c">// Sirf mount pe chalega ([] dependency)</span>
+  <span class="k">if</span> (user <span class="op">&&</span> <span class="op">!</span><span class="fn">getAccessToken</span>()) <span class="op">{</span>
+    <span class="c">// User ka profile localStorage mein hai</span>
+    <span class="c">// lekin token memory mein nahi (page refresh)</span>
+    authApi<span class="op">.</span><span class="fn">refresh</span>()
+      <span class="op">.</span><span class="fn">then</span>(<span class="op">({</span> data <span class="op">}) =></span> <span class="fn">setAccessToken</span>(data<span class="op">.</span>data<span class="op">.</span>accessToken))
+      <span class="op">.</span><span class="fn">catch</span>(<span class="op">() => {</span>
+        <span class="c">// Cookie bhi expire ho gayi — force logout</span>
+        <span class="fn">setUser</span>(<span class="k">null</span>)<span class="op">;</span>
+        localStorage<span class="op">.</span><span class="fn">removeItem</span>(<span class="s">"yulo_owner_profile"</span>)<span class="op">;</span>
+      <span class="op">})</span>
+      <span class="op">.</span><span class="fn">finally</span>(<span class="op">() =></span> <span class="fn">setLoading</span>(<span class="k">false</span>))<span class="op">;</span>
+  <span class="op">} else {</span>
+    <span class="fn">setLoading</span>(<span class="k">false</span>)<span class="op">;</span>
+  <span class="op">}</span>
+<span class="op">},</span> [])<span class="op">;</span>   <span class="c">// empty array = sirf mount pe</span></pre>
+      </div>
+
+      <div class="callout info">
+        <span class="icon">💡</span>
+        <p><strong>HttpOnly Cookie kya hai?</strong> Server ek special cookie set karta hai <code>Set-Cookie: refreshToken=...; HttpOnly</code>. <em>HttpOnly</em> ka matlab hai JavaScript is cookie ko read nahi kar sakta — sirf browser hi automatically server pe bhejta hai. Isliye yeh super secure hai!</p>
+      </div>
+
+      <!-- ─── 6. STAFF CONTEXT ───────────────────────────────────────── -->
+      <h2 id="staff-ctx">6. <code>StaffAuthContext.jsx</code> — Staff State</h2>
+
+      <div class="file-badge">📄 src/context/StaffAuthContext.jsx</div>
+
+      <p>Staff (waiter aur chef) ke liye alag context hai. Reason:</p>
+
+      <ul>
+        <li><strong>Alag token type:</strong> Staff ke liye <code>staffToken</code> hai, owner ke liye <code>accessToken</code></li>
+        <li><strong>No refresh:</strong> Staff token expire ho toh dobara PIN daalo — koi silent refresh nahi</li>
+        <li><strong>Session-scoped:</strong> POS tablet pe tab band hone par automatically logout — good security for shared devices</li>
+      </ul>
+
+      <div class="code-block">
+        <div class="code-header"><div class="dot"></div>StaffAuthContext — login function</div>
+        <pre><span class="k">const</span> login <span class="op">=</span> <span class="fn">useCallback</span>(<span class="k">async</span> <span class="op">({</span> restaurantId<span class="op">,</span> pin <span class="op">}) => {</span>
+  <span class="c">// Server pe PIN verify hoga</span>
+  <span class="k">const</span> <span class="op">{</span> data <span class="op">} =</span> <span class="k">await</span> authApi<span class="op">.</span><span class="fn">staffLogin</span>(<span class="op">{</span> restaurantId<span class="op">,</span> pin <span class="op">});</span>
+  <span class="k">const</span> <span class="op">{</span> staff<span class="op">:</span> s<span class="op">,</span> staffToken <span class="op">}</span> <span class="op">=</span> data<span class="op">.</span>data<span class="op">;</span>
+
+  <span class="c">// Token sessionStorage mein rakhna</span>
+  <span class="fn">setStaffToken</span>(staffToken)<span class="op">;</span>  <span class="c">// module-level function</span>
+
+  <span class="c">// Profile sessionStorage mein</span>
+  <span class="k">const</span> profile <span class="op">= {</span> <span class="op">...</span>s<span class="op">,</span> restaurantId <span class="op">};</span>
+  sessionStorage<span class="op">.</span><span class="fn">setItem</span>(<span class="s">"yulo_staff_profile"</span><span class="op">,</span>
+    JSON<span class="op">.</span><span class="fn">stringify</span>(profile))<span class="op">;</span>
+
+  <span class="fn">setStaff</span>(profile)<span class="op">;</span>
+  <span class="k">return</span> profile<span class="op">;</span>
+<span class="op">},</span> [])<span class="op">;</span></pre>
+      </div>
+
+      <div class="callout tip">
+        <span class="icon">🎯</span>
+        <p><strong><code>useCallback</code> kyun use kiya?</strong> Agar <code>login</code> function directly <code>StaffAuthContext</code> mein define karo without <code>useCallback</code>, toh har re-render pe naya function banata hai. Jo context consume karta hai woh unnecessary re-render hota hai. <code>useCallback</code> ensure karta hai ki function tab hi naya bane jab dependencies change ho.</p>
+      </div>
+
+      <!-- ─── 7. LOGIN SCREENS ───────────────────────────────────────── -->
+      <h2 id="login-screens">7. Login Screens</h2>
+
+      <h3>7.1 OwnerLoginPage — <code>/owner/login</code></h3>
+      <div class="file-badge">📄 src/screens/auth/OwnerLoginPage.jsx</div>
+
+      <p>Clean white card design, dark background. Login + Signup tabs (mode switcher).</p>
+
+      <div class="code-block">
+        <div class="code-header"><div class="dot"></div>Key pattern — form submit handler</div>
+        <pre><span class="k">async function</span> <span class="fn">handleSubmit</span>(e) <span class="op">{</span>
+  e<span class="op">.</span><span class="fn">preventDefault</span>()<span class="op">;</span>  <span class="c">// page reload mat karo</span>
+  <span class="fn">setError</span>(<span class="s">""</span>)<span class="op">;</span>         <span class="c">// purana error clear karo</span>
+  <span class="fn">setLoading</span>(<span class="k">true</span>)<span class="op">;</span>
+
+  <span class="k">try</span> <span class="op">{</span>
+    <span class="k">if</span> (mode <span class="op">===</span> <span class="s">"login"</span>) <span class="op">{</span>
+      <span class="k">await</span> <span class="fn">login</span>(<span class="op">{</span> email<span class="op">:</span> form<span class="op">.</span>email<span class="op">,</span> password<span class="op">:</span> form<span class="op">.</span>password <span class="op">});</span>
+    <span class="op">}</span> <span class="k">else</span> <span class="op">{</span>
+      <span class="k">await</span> <span class="fn">signup</span>(<span class="op">{</span> name<span class="op">:</span> form<span class="op">.</span>name<span class="op">, ...</span>form <span class="op">});</span>
+    <span class="op">}</span>
+    <span class="c">// Success: dashboard pe bhejo</span>
+    <span class="fn">navigate</span>(<span class="s">"/dashboard"</span><span class="op">,</span> <span class="op">{</span> replace<span class="op">:</span> <span class="k">true</span> <span class="op">});</span>
+    <span class="c">// replace: true = back button login pe nahi jaaye</span>
+  <span class="op">}</span> <span class="k">catch</span> (err) <span class="op">{</span>
+    <span class="fn">setError</span>(err<span class="op">.</span>message)<span class="op">;</span>  <span class="c">// error show karo</span>
+  <span class="op">}</span> <span class="k">finally</span> <span class="op">{</span>
+    <span class="fn">setLoading</span>(<span class="k">false</span>)<span class="op">;</span>     <span class="c">// hamesha loading false karo</span>
+  <span class="op">}</span>
+<span class="op">}</span></pre>
+      </div>
+
+      <div class="callout warn">
+        <span class="icon">⚠️</span>
+        <p><strong><code>finally</code> kyun zaroori hai?</strong> Agar <code>try</code> ya <code>catch</code> mein error aaye, <code>finally</code> phir bhi chalega. Agar <code>setLoading(false)</code> sirf <code>try</code> mein likho aur error aaye, button hamesha disabled rehega. User dobara submit nahi kar payega!</p>
+      </div>
+
+      <h3>7.2 StaffLoginPage — <code>/staff/login</code></h3>
+      <div class="file-badge">📄 src/screens/auth/StaffLoginPage.jsx</div>
+
+      <p>Dark theme — POS terminal feel. restaurantId + PIN input.</p>
+
+      <div class="code-block">
+        <div class="code-header"><div class="dot"></div>Role-based redirect after login</div>
+        <pre><span class="k">const</span> staff <span class="op">=</span> <span class="k">await</span> <span class="fn">login</span>(<span class="op">{</span> restaurantId<span class="op">,</span> pin <span class="op">});</span>
+
+<span class="c">// Role ke hisaab se alag portal pe bhejo</span>
+<span class="k">if</span> (staff<span class="op">.</span>role <span class="op">===</span> <span class="s">"waiter"</span>)
+  <span class="fn">navigate</span>(<span class="s">"/waiter"</span><span class="op">,</span> <span class="op">{</span> replace<span class="op">:</span> <span class="k">true</span> <span class="op">});</span>
+<span class="k">else if</span> (staff<span class="op">.</span>role <span class="op">===</span> <span class="s">"chef"</span>)
+  <span class="fn">navigate</span>(<span class="s">"/chef"</span><span class="op">,</span> <span class="op">{</span> replace<span class="op">:</span> <span class="k">true</span> <span class="op">});</span>
+
+<span class="c">// PIN input: sirf numbers allow karo</span>
+onChange<span class="op">={(</span>e<span class="op">) =>
+  setForm</span>(prev <span class="op">=></span> <span class="op">({</span>
+    <span class="op">...</span>prev<span class="op">,</span>
+    pin<span class="op">:</span> e<span class="op">.</span>target<span class="op">.</span>value
+      <span class="op">.</span><span class="fn">replace</span>(<span class="s">/\D/g</span><span class="op">,</span> <span class="s">""</span>)     <span class="c">// non-digits remove</span>
+      <span class="op">.</span><span class="fn">slice</span>(<span class="num">0</span><span class="op">,</span> <span class="num">8</span>)              <span class="c">// max 8 digits</span>
+  <span class="op">}))}</span></pre>
+      </div>
+
+      <!-- ─── 8. PROTECTED ROUTES ────────────────────────────────────── -->
+      <h2 id="protected">8. Protected Routes — Route Guards</h2>
+
+      <div class="file-badge">📄 src/components/OwnerRoute.jsx &nbsp; src/components/StaffRoute.jsx</div>
+
+      <p>
+        Ye components ensure karte hain ki <strong>koi bhi unauthenticated user protected pages pe na jaaye</strong>.
+        Isko <em>Route Guard</em> pattern kehte hain.
+      </p>
+
+      <div class="code-block">
+        <div class="code-header"><div class="dot"></div>OwnerRoute — simplified</div>
+        <pre><span class="k">export default function</span> <span class="fn">OwnerRoute</span>(<span class="op">{</span> children <span class="op">}) {</span>
+  <span class="k">const</span> <span class="op">{</span> isAuthenticated<span class="op">,</span> loading <span class="op">} =</span> <span class="fn">useOwnerAuth</span>()<span class="op">;</span>
+
+  <span class="c">// Page refresh pe token refresh ho raha hai — wait karo</span>
+  <span class="k">if</span> (loading) <span class="k">return</span> <span class="op">&lt;</span>LoadingScreen <span class="op">/&gt;;</span>
+
+  <span class="c">// Not logged in — login page pe bhejo</span>
+  <span class="k">if</span> (<span class="op">!</span>isAuthenticated)
+    <span class="k">return</span> <span class="op">&lt;</span>Navigate to<span class="op">=</span><span class="s">"/owner/login"</span> replace <span class="op">/&gt;;</span>
+
+  <span class="c">// Sab theek hai — actual page show karo</span>
+  <span class="k">return</span> children<span class="op">;</span>
+<span class="op">}</span></pre>
+      </div>
+
+      <div class="code-block">
+        <div class="code-header"><div class="dot"></div>StaffRoute — role bhi check karta hai</div>
+        <pre><span class="k">export default function</span> <span class="fn">StaffRoute</span>(<span class="op">{</span> children<span class="op">,</span> role <span class="op">}) {</span>
+  <span class="k">const</span> <span class="op">{</span> isAuthenticated<span class="op">,</span> staff <span class="op">} =</span> <span class="fn">useStaffAuth</span>()<span class="op">;</span>
+
+  <span class="k">if</span> (<span class="op">!</span>isAuthenticated)
+    <span class="k">return</span> <span class="op">&lt;</span>Navigate to<span class="op">=</span><span class="s">"/staff/login"</span> replace <span class="op">/&gt;;</span>
+
+  <span class="c">// Chef ne waiter URL open kiya — wrong portal redirect</span>
+  <span class="k">if</span> (role <span class="op">&&</span> staff<span class="op">?.</span>role <span class="op">!==</span> role) <span class="op">{</span>
+    <span class="k">const</span> target <span class="op">=</span> staff<span class="op">?.</span>role <span class="op">===</span> <span class="s">"waiter"</span>
+      <span class="op">?</span> <span class="s">"/waiter"</span> <span class="op">:</span> <span class="s">"/chef"</span><span class="op">;</span>
+    <span class="k">return</span> <span class="op">&lt;</span>Navigate to<span class="op">={</span>target<span class="op">}</span> replace <span class="op">/&gt;;</span>
+  <span class="op">}</span>
+
+  <span class="k">return</span> children<span class="op">;</span>
+<span class="op">}</span></pre>
+      </div>
+
+      <div class="callout tip">
+        <span class="icon">🎯</span>
+        <p><strong><code>replace</code> kyun?</strong> <code>&lt;Navigate to="/login" replace /&gt;</code> mein <code>replace</code> se browser history mein protected URL store nahi hota. Bina replace ke, user back button press kare toh protected page pe wapas aa jayega (jo phir redirect karega — annoying loop).</p>
+      </div>
+
+      <!-- ─── 9. MAIN.JSX ────────────────────────────────────────────── -->
+      <h2 id="main">9. <code>main.jsx</code> — Sab Wrap Karna</h2>
+
+      <div class="file-badge">📄 src/main.jsx</div>
+
+      <p>
+        <strong>Provider Pattern:</strong> React mein context aur libraries ko
+        "wrap" karna padta hai root level pe. Jo bhi andar hai woh sab access kar sakta hai.
+        Socho jaise building ka electrical board — wiring ek jagah, sab rooms mein current.
+      </p>
+
+      <div class="code-block">
+        <div class="code-header"><div class="dot"></div>main.jsx — Provider tree</div>
+        <pre><span class="op">&lt;</span><span class="cls">QueryClientProvider</span> client<span class="op">={</span>queryClient<span class="op">}&gt;</span>   <span class="c">// TanStack Query</span>
+  <span class="op">&lt;</span><span class="cls">BrowserRouter</span><span class="op">&gt;</span>                         <span class="c">// React Router</span>
+    <span class="op">&lt;</span><span class="cls">OwnerAuthProvider</span><span class="op">&gt;</span>                     <span class="c">// Owner auth state</span>
+      <span class="op">&lt;</span><span class="cls">StaffAuthProvider</span><span class="op">&gt;</span>                   <span class="c">// Staff auth state</span>
+        <span class="op">&lt;</span><span class="cls">App</span> <span class="op">/&gt;</span>                             <span class="c">// Poori app</span>
+      <span class="op">&lt;/</span><span class="cls">StaffAuthProvider</span><span class="op">&gt;</span>
+    <span class="op">&lt;/</span><span class="cls">OwnerAuthProvider</span><span class="op">&gt;</span>
+  <span class="op">&lt;/</span><span class="cls">BrowserRouter</span><span class="op">&gt;</span>
+<span class="op">&lt;/</span><span class="cls">QueryClientProvider</span><span class="op">&gt;</span>
+
+<span class="c">// Order matters!
+// BrowserRouter must be around everything using useNavigate/useLocation
+// Auth providers must be inside BrowserRouter (they use navigate internally)</span></pre>
+      </div>
+
+      <div class="callout warn">
+        <span class="icon">⚠️</span>
+        <p><strong>Order ka dhyan rakho:</strong> <code>BrowserRouter</code> <em>bahar</em> hona chahiye auth providers se. Kyunki auth context mein <code>useNavigate</code> use ho sakta hai — aur <code>useNavigate</code> sirf <code>BrowserRouter</code> ke andar kaam karta hai.</p>
+      </div>
+
+      <!-- ─── 10. FULL FLOW ──────────────────────────────────────────── -->
+      <h2 id="flow">10. Poora Flow — Ek Jagah</h2>
+
+      <div class="flow">
+        <strong style="display:block;margin-bottom:16px;color:var(--muted);font-size:12px;text-transform:uppercase;letter-spacing:.06em;">Owner Login Flow</strong>
+
+        <div class="flow-row">
+          <div class="flow-box orange">User /dashboard open kare</div>
+          <div class="flow-arrow">→</div>
+          <div class="flow-box blue">OwnerRoute check kare</div>
+          <div class="flow-arrow">→</div>
+          <div class="flow-box red">Not logged in</div>
+          <div class="flow-arrow">→</div>
+          <div class="flow-box purple">Redirect /owner/login</div>
+        </div>
+        <div style="height:20px;"></div>
+        <div class="flow-row">
+          <div class="flow-box blue">Form fill & submit</div>
+          <div class="flow-arrow">→</div>
+          <div class="flow-box teal">authApi.login()</div>
+          <div class="flow-arrow">→</div>
+          <div class="flow-box teal">POST /api/auth/login</div>
+        </div>
+        <div style="height:20px;"></div>
+        <div class="flow-row">
+          <div class="flow-box green">{ accessToken, user } milta hai</div>
+          <div class="flow-arrow">→</div>
+          <div class="flow-box green">token memory mein, user localStorage</div>
+          <div class="flow-arrow">→</div>
+          <div class="flow-box green">navigate(/dashboard)</div>
+        </div>
+        <div style="height:20px;"></div>
+        <div class="flow-row">
+          <div class="flow-box orange">Koi bhi API call</div>
+          <div class="flow-arrow">→</div>
+          <div class="flow-box blue">Interceptor token lagata hai</div>
+          <div class="flow-arrow">→</div>
+          <div class="flow-box teal">Authorization: Bearer ...</div>
+        </div>
+        <div style="height:20px;"></div>
+        <div class="flow-row">
+          <div class="flow-box red">Token expire (15 min)</div>
+          <div class="flow-arrow">→</div>
+          <div class="flow-box purple">Interceptor refresh karta hai</div>
+          <div class="flow-arrow">→</div>
+          <div class="flow-box green">Request automatically retry</div>
+        </div>
+      </div>
+
+      <!-- ─── 11. GOOD vs BAD ────────────────────────────────────────── -->
+      <h2 id="practices">11. Good vs Bad Practices</h2>
+
+      <h3>Security</h3>
+      <div class="compare">
+        <div class="card good">
+          <div class="card-title">✅ Good Practices (Jo Humne Kiya)</div>
+          <ul>
+            <li><strong>Access token in memory</strong> — XSS attack se safe</li>
+            <li><strong>Refresh token HttpOnly cookie</strong> — JavaScript access nahi kar sakta</li>
+            <li><strong>Staff token sessionStorage</strong> — Tab close = auto logout (shared POS devices ke liye safe)</li>
+            <li><strong>Token blacklisting</strong> — Server Redis pe logout ke baad token invalidate karta hai</li>
+            <li><strong>Short token lifetime</strong> — 15 min access, 7 din refresh</li>
+          </ul>
+        </div>
+        <div class="card bad">
+          <div class="card-title">❌ Bad Practices (Jo Avoid Kiya)</div>
+          <ul>
+            <li><strong>Token localStorage mein</strong> — koi bhi JS code read kar sakta hai</li>
+            <li><strong>Long-lived access tokens</strong> — agar steal ho toh zyada damage</li>
+            <li><strong>Token URL mein</strong> — browser history mein store hota hai</li>
+            <li><strong>Same token for all roles</strong> — compromise ek ka, sab expose</li>
+          </ul>
+        </div>
+      </div>
+
+      <h3>Code Architecture</h3>
+      <div class="compare">
+        <div class="card good">
+          <div class="card-title">✅ Good Practices</div>
+          <ul>
+            <li><strong>Separation of Concerns</strong> — API layer, state layer, UI layer alag</li>
+            <li><strong>Single Axios instance</strong> — ek jagah se sab manage</li>
+            <li><strong>Custom hooks</strong> (<code>useOwnerAuth</code>) — context access clean way mein</li>
+            <li><strong>Error boundary</strong> — context bahar use hone pe clear error</li>
+            <li><strong>Loading state</strong> — page refresh pe blank screen nahi</li>
+          </ul>
+        </div>
+        <div class="card bad">
+          <div class="card-title">❌ Bad Practices</div>
+          <ul>
+            <li><strong>Monolithic component</strong> — 3500 line ka App.jsx (legacy)</li>
+            <li><strong>Direct fetch() calls in components</strong> — no centralized error handling</li>
+            <li><strong>Hardcoded tokens in components</strong> — maintenance nightmare</li>
+            <li><strong>No loading state on refresh</strong> — flash of wrong content</li>
+          </ul>
+        </div>
+      </div>
+
+      <h3>UX Practices</h3>
+      <div class="compare">
+        <div class="card good">
+          <div class="card-title">✅ Good UX</div>
+          <ul>
+            <li>Login ke baad <code>replace: true</code> — back button loop nahi</li>
+            <li><code>finally</code> mein loading false — button hamesha clickable</li>
+            <li>Error message show karo — user ko pata chale kya galat hua</li>
+            <li>PIN field: numeric only enforce — keyboard automatically numeric aata hai mobile pe</li>
+            <li>Loading state on submit — double submit prevent</li>
+          </ul>
+        </div>
+        <div class="card bad">
+          <div class="card-title">❌ Bad UX</div>
+          <ul>
+            <li>Error nahi dikhana — user confused</li>
+            <li>Loading state nahi — user multiple baar click karta hai</li>
+            <li>Page reload on form submit — browser default behavior</li>
+            <li>Token expire hone pe seedha login — user ka kaam lost</li>
+          </ul>
+        </div>
+      </div>
+
+      <!-- ─── 12. KEY CONCEPTS ───────────────────────────────────────── -->
+      <h2 id="concepts">12. Key Concepts jo Seekhe</h2>
+
+      <div class="steps">
+        <div class="step">
+          <div class="step-num"></div>
+          <div class="step-body">
+            <h4>JWT — JSON Web Token</h4>
+            <p>
+              Token ek <strong>encoded string</strong> hoti hai jisme user ki info hoti hai. Server ise verify karta hai
+              apni secret key se. Koi DB lookup nahi chahiye — fast aur stateless. Hamare system mein
+              do tokens hain: short-lived <em>access token</em> (15 min) aur long-lived <em>refresh token</em> (7 din).
+            </p>
+          </div>
+        </div>
+        <div class="step">
+          <div class="step-num"></div>
+          <div class="step-body">
+            <h4>Axios Interceptors</h4>
+            <p>
+              <strong>Request interceptor</strong> — request jane se pehle modify karo (token lagao).
+              <strong>Response interceptor</strong> — response aane ke baad handle karo (401 pe refresh karo).
+              Middleware pattern ka React/browser equivalent.
+            </p>
+          </div>
+        </div>
+        <div class="step">
+          <div class="step-num"></div>
+          <div class="step-body">
+            <h4>React Context + Custom Hook Pattern</h4>
+            <p>
+              Context banao (<code>createContext</code>) → Provider component mein wrap karo → Custom hook (<code>useOwnerAuth</code>)
+              se consume karo. Direct <code>useContext(OwnerAuthContext)</code> use karne ke bajay custom hook
+              better hai — error message clear milta hai, aur future mein implementation change karna easy.
+            </p>
+          </div>
+        </div>
+        <div class="step">
+          <div class="step-num"></div>
+          <div class="step-body">
+            <h4>XSS (Cross-Site Scripting)</h4>
+            <p>
+              Ek attack jisme hacker website pe malicious JavaScript inject karta hai, phir
+              <code>localStorage.getItem("token")</code> se token steal karta hai. Isliye access token
+              <em>kabhi</em> localStorage mein nahi rakhte. Memory (variable) mein rakho — JS inject ho
+              bhi jaaye toh closure scope se outside nahi nikal sakta (theoretically safer).
+            </p>
+          </div>
+        </div>
+        <div class="step">
+          <div class="step-num"></div>
+          <div class="step-body">
+            <h4>HttpOnly Cookie</h4>
+            <p>
+              Server <code>Set-Cookie: refreshToken=...; HttpOnly; SameSite=Strict</code> response mein bhejta hai.
+              <em>HttpOnly</em> = JavaScript window se nahi padha ja sakta.
+              <em>SameSite=Strict</em> = sirf same site ki requests pe cookie jayegi — CSRF attack se bachav.
+              Browser automatically ise har request pe server pe bhejta hai.
+            </p>
+          </div>
+        </div>
+        <div class="step">
+          <div class="step-num"></div>
+          <div class="step-body">
+            <h4>Role-Based Access Control (RBAC)</h4>
+            <p>
+              Har user ka ek <em>role</em> hota hai: <code>customer</code>, <code>restaurant_owner</code>,
+              <code>waiter</code>, <code>chef</code>. Protected routes role check karte hain. Ek waiter
+              owner dashboard nahi dekh sakta, ek chef waiter portal nahi use kar sakta — even if URL directly dalo.
+            </p>
+          </div>
+        </div>
+        <div class="step">
+          <div class="step-num"></div>
+          <div class="step-body">
+            <h4>Optimistic vs Loading State</h4>
+            <p>
+              <strong>Loading state</strong> = action hone se pehle UI disable karo (button disabled, spinner show karo).
+              Prevents double-submit. <strong>Optimistic update</strong> = assume success, show result immediately,
+              revert on failure — faster feel (TanStack Query mein use hoga later). Dono important hain different scenarios mein.
+            </p>
+          </div>
+        </div>
+      </div>
+
+      <!-- ─── 13. NEXT STEPS ────────────────────────────────────────── -->
+      <h2 id="next">13. Aage Kya Hai — Learning Path</h2>
+
+      <div class="card">
+        <div class="card-title" style="color: var(--accent);">📚 Next Steps (In Order)</div>
+        <ol style="padding-left:20px;">
+          <li style="margin-bottom:14px;">
+            <strong>Domain API Modules banao</strong><br>
+            <span style="color:var(--muted);font-size:13px;">
+              <code>owner.api.js</code>, <code>staff.api.js</code>, <code>customer.api.js</code> — sab backend routes ke functions
+            </span>
+          </li>
+          <li style="margin-bottom:14px;">
+            <strong>TanStack Query hooks</strong><br>
+            <span style="color:var(--muted);font-size:13px;">
+              <code>useMenu()</code>, <code>useOrders()</code>, <code>useDashboard()</code> — data fetching with caching
+            </span>
+          </li>
+          <li style="margin-bottom:14px;">
+            <strong>Screens ko real API se connect karo</strong><br>
+            <span style="color:var(--muted);font-size:13px;">
+              OwnerDashboard, WaiterDashboard, ChefDashboard — VITE_USE_MOCKS=false
+            </span>
+          </li>
+          <li style="margin-bottom:14px;">
+            <strong>Socket.IO integration</strong><br>
+            <span style="color:var(--muted);font-size:13px;">
+              Real-time order updates, kitchen board, live monitor — Socket.IO client side
+            </span>
+          </li>
+          <li style="margin-bottom:0;">
+            <strong>Error Boundary + Toast notifications</strong><br>
+            <span style="color:var(--muted);font-size:13px;">
+              Global error handling, success/failure toast messages across all mutations
+            </span>
+          </li>
+        </ol>
+      </div>
+
+      <div class="callout tip">
+        <span class="icon">🚀</span>
+        <p style="margin-bottom:6px;"><strong>Remember karo:</strong> Jo architecture humne banaya — API Layer → Context → Screens — yahi industry standard hai. Companies jaise Swiggy, Zomato, Amazon sab isi pattern ke variations use karte hain. Aap sahi direction mein ho.</p>
+      </div>
+
+      <!-- Footer -->
+      <div style="margin-top:64px; padding-top:24px; border-top:1px solid var(--border); text-align:center;">
+        <p style="color:var(--muted); font-size:13px;">
+          YuloStores — Auth Layer Documentation &nbsp;·&nbsp; Built with care for learning &nbsp;·&nbsp; 2026
+        </p>
+      </div>
+
+    </div><!-- /content -->
+  </div><!-- /layout -->
+</div><!-- /page -->
+</body>
+</html>

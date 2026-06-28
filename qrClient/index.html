@@ -1,0 +1,80 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Restaurant Menu</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Fraunces:wght@500;700&family=Manrope:wght@400;500;700&display=swap"
+      rel="stylesheet"
+    />
+    <link rel="stylesheet" href="/menu/index.css" />
+  </head>
+  <body>
+    <main class="menu-shell">
+      <section class="hero-card">
+        <p class="eyebrow">Digital Menu</p>
+        <div class="hero-copy">
+          <h1 id="restaurantName">Loading menu...</h1>
+          <p id="heroText" class="hero-text">
+            Fetching restaurant details for this table.
+          </p>
+        </div>
+        <div class="meta-row">
+          <span id="tableBadge" class="badge hidden"></span>
+          <span id="itemCountBadge" class="badge ghost">0 items</span>
+        </div>
+      </section>
+
+      <section class="content-grid">
+        <section class="menu-panel">
+          <div class="panel-head">
+            <div>
+              <p class="section-label">Today&apos;s Spread</p>
+              <h2>Menu Highlights</h2>
+            </div>
+            <p id="statusText" class="status-text">Waiting for menu data</p>
+          </div>
+
+          <div id="menuState" class="menu-state">Loading menu...</div>
+          <div id="menuGrid" class="menu-grid hidden"></div>
+        </section>
+
+        <aside class="order-panel">
+          <div class="panel-head">
+            <div>
+              <p class="section-label">Your Order</p>
+              <h2>Cart Summary</h2>
+            </div>
+            <p id="orderStatus" class="status-text">
+              Select dishes to continue
+            </p>
+          </div>
+
+          <div id="emptyCartState" class="menu-state compact">
+            No items selected yet.
+          </div>
+          <div id="selectedItems" class="selected-items hidden"></div>
+
+          <div class="order-total">
+            <span>Total</span>
+            <strong id="orderTotal">Rs 0</strong>
+          </div>
+
+          <button
+            id="placeOrderButton"
+            class="place-order-button"
+            type="button"
+            disabled
+          >
+            Place Order
+          </button>
+        </aside>
+      </section>
+    </main>
+
+    <script type="module" src="/menu/index.js"></script>
+  </body>
+</html>
