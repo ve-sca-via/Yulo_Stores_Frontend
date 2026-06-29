@@ -29,6 +29,8 @@ export const ownerApi = {
   deleteMenuItem:     (rId, itemId)           => client.delete(`/owner/${rId}/menu-items/${itemId}`),
   toggleMenuItem:     (rId, itemId)           => client.patch(`/owner/${rId}/menu-items/${itemId}/toggle`),
   updateIngredients:  (rId, itemId, body)     => client.patch(`/owner/${rId}/menu-items/${itemId}/ingredients`, body),
+  createAddon:        (rId, itemId, formData) => client.post(`/owner/${rId}/menu-items/${itemId}/addons`, formData),
+  deleteAddon:        (rId, itemId, addonId)  => client.delete(`/owner/${rId}/menu-items/${itemId}/addons/${addonId}`),
 
   // ── Categories ───────────────────────────────────────────────────
   listCategories:      (rId)             => client.get(`/owner/${rId}/categories`),

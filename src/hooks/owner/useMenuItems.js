@@ -111,6 +111,22 @@ export function useCreateCategory(restaurantId) {
   });
 }
 
+export function useCreateAddon(restaurantId) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ itemId, formData }) => ownerApi.createAddon(restaurantId, itemId, formData),
+    onSuccess: () => qc.invalidateQueries({ queryKey: menuItemKeys.all(restaurantId) }),
+  });
+}
+
+export function useDeleteAddon(restaurantId) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ itemId, addonId }) => ownerApi.deleteAddon(restaurantId, itemId, addonId),
+    onSuccess: () => qc.invalidateQueries({ queryKey: menuItemKeys.all(restaurantId) }),
+  });
+}
+
 export function useDeleteCategory(restaurantId) {
   const qc = useQueryClient();
   return useMutation({

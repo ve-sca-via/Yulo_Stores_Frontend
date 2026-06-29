@@ -13,7 +13,7 @@ import {
 } from "lucide-react";
 
 import { useOwnerAuth } from "@/context/OwnerAuthContext";
-import { useMenuItems, useCategories, useCreateCategory, useCreateMenuItem, useUpdateMenuItem } from "@/hooks/owner/useMenuItems";
+import { useMenuItems, useCategories, useCreateCategory, useCreateMenuItem, useUpdateMenuItem, useCreateAddon, useDeleteAddon } from "@/hooks/owner/useMenuItems";
 import DashboardLayout from "@/components/DashboardLayout";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -101,6 +101,8 @@ export default function MenuManagement() {
   const createMutation         = useCreateMenuItem(restaurantId);
   const updateMutation         = useUpdateMenuItem(restaurantId);
   const createCategoryMutation = useCreateCategory(restaurantId);
+  const createAddonMutation    = useCreateAddon(restaurantId);
+  const deleteAddonMutation    = useDeleteAddon(restaurantId);
 
   const [item, setItem] = useState({
     name: "", description: "", prepTime: 20,
@@ -110,9 +112,12 @@ export default function MenuManagement() {
   const [statusMsg, setStatusMsg]       = useState("");
   const [newCatName, setNewCatName]     = useState("");
   const [showNewCat, setShowNewCat]     = useState(false);
+  const [addonForm, setAddonForm]       = useState({ name: "", foodType: "veg", quantity: "1", unit: "Piece", price: "50" });
+  const [addonImageFile, setAddonImageFile] = useState(null);
+  const [addonMsg, setAddonMsg]         = useState("");
 
   const ingredients = [];
-  const addons = [];
+  const addons = item.addons ?? [];
 
   async function handleSubmit() {
     setStatusMsg("");
@@ -136,6 +141,29 @@ export default function MenuManagement() {
       setImageFile(null);
     } catch (err) {
       setStatusMsg(err.response?.data?.message ?? err.message);
+    }
+  }
+
+  async function handleSaveAddon() {
+    setAddonMsg("");
+    if (!item._id) { setAddonMsg("Save the menu item first before adding add-ons."); return; }
+    if (!addonForm.name || !addonForm.price) { setAddonMsg("Name and price are required."); return; }
+    const fd = new FormData();
+    fd.append("name", addonForm.name);
+    fd.append("foodType", addonForm.foodType);
+    fd.append("quantity", addonForm.quantity);
+    fd.append("unit", addonForm.unit);
+    fd.append("price", addonForm.price);
+    if (addonImageFile) fd.append("image", addonImageFile);
+    try {
+      const res = await createAddonMutation.mutateAsync({ itemId: item._id, formData: fd });
+      const updated = res.data?.data;
+      if (updated) setItem((i) => ({ ...i, addons: [...(i.addons ?? []), updated.addon] }));
+      setAddonForm({ name: "", foodType: "veg", quantity: "1", unit: "Piece", price: "50" });
+      setAddonImageFile(null);
+      setAddonMsg("Add-on saved!");
+    } catch (err) {
+      setAddonMsg(err.response?.data?.message ?? err.message);
     }
   }
 
@@ -364,21 +392,25 @@ export default function MenuManagement() {
         <CardContent className="space-y-3">
           {addons.map((addon) => (
             <div
-              key={addon.id}
+              key={addon._id}
               className="flex items-center gap-4 rounded-xl border border-brand-cream/70 px-4 py-3"
             >
-              <Switch defaultChecked={addon.enabled} />
+              {addon.image && (
+                <img src={addon.image} alt={addon.name} className="h-10 w-10 rounded-lg object-cover shrink-0" />
+              )}
               <div>
                 <p className="text-sm font-semibold">{addon.name}</p>
-                <p className="text-xs text-muted-foreground">{addon.note}</p>
+                <p className="text-xs text-muted-foreground">{addon.quantity} {addon.unit} · {addon.foodType === "veg" ? "VEG" : "NON-VEG"}</p>
               </div>
               <span className="ml-auto text-sm font-semibold text-brand-green">
                 +₹{addon.price}
               </span>
-              <button type="button" className="text-muted-foreground hover:text-brand-orange">
-                <Pencil className="h-4 w-4" />
-              </button>
-              <button type="button" className="text-muted-foreground hover:text-brand-maroon">
+              <button
+                type="button"
+                className="text-muted-foreground hover:text-brand-maroon"
+                disabled={deleteAddonMutation.isPending}
+                onClick={() => deleteAddonMutation.mutate({ itemId: item._id, addonId: addon._id })}
+              >
                 <Trash2 className="h-4 w-4" />
               </button>
             </div>
@@ -393,30 +425,38 @@ export default function MenuManagement() {
               <div className="space-y-3">
                 <div className="space-y-1.5">
                   <Label className="text-xs">Name</Label>
-                  <Input placeholder="Enter add-on name" />
+                  <Input
+                    placeholder="Enter add-on name"
+                    value={addonForm.name}
+                    onChange={(e) => setAddonForm((f) => ({ ...f, name: e.target.value }))}
+                  />
                 </div>
                 <div className="grid grid-cols-2 gap-3">
                   <div className="space-y-1.5">
                     <Label className="text-xs">Food Type</Label>
-                    <Select defaultValue="Veg">
+                    <Select value={addonForm.foodType} onValueChange={(v) => setAddonForm((f) => ({ ...f, foodType: v }))}>
                       <SelectTrigger>
                         <SelectValue />
                       </SelectTrigger>
                       <SelectContent>
-                        <SelectItem value="Veg">Veg</SelectItem>
-                        <SelectItem value="Non-Veg">Non-Veg</SelectItem>
+                        <SelectItem value="veg">Veg</SelectItem>
+                        <SelectItem value="non_veg">Non-Veg</SelectItem>
+                        <SelectItem value="egg">Egg</SelectItem>
                       </SelectContent>
                     </Select>
                   </div>
                   <div className="space-y-1.5">
                     <Label className="text-xs">Quantity</Label>
-                    <Input defaultValue="1" />
+                    <Input
+                      value={addonForm.quantity}
+                      onChange={(e) => setAddonForm((f) => ({ ...f, quantity: e.target.value }))}
+                    />
                   </div>
                 </div>
                 <div className="grid grid-cols-2 gap-3">
                   <div className="space-y-1.5">
                     <Label className="text-xs">Unit</Label>
-                    <Select defaultValue="Piece">
+                    <Select value={addonForm.unit} onValueChange={(v) => setAddonForm((f) => ({ ...f, unit: v }))}>
                       <SelectTrigger>
                         <SelectValue />
                       </SelectTrigger>
@@ -429,33 +469,66 @@ export default function MenuManagement() {
                   </div>
                   <div className="space-y-1.5">
                     <Label className="text-xs">Pricing</Label>
-                    <RupeeInput defaultValue="50" />
+                    <RupeeInput
+                      value={addonForm.price}
+                      onChange={(e) => setAddonForm((f) => ({ ...f, price: e.target.value }))}
+                    />
                   </div>
                 </div>
               </div>
 
               <div className="space-y-3">
                 <label className="flex h-[104px] cursor-pointer flex-col items-center justify-center gap-1.5 rounded-xl border-2 border-dashed border-[#E2DFDE] bg-white text-center">
-                  <Upload className="h-5 w-5 text-muted-foreground" />
-                  <span className="text-sm text-muted-foreground">Upload Item Image</span>
-                  <span className="text-xs text-muted-foreground">PNG, JPG up to 2MB</span>
+                  {addonImageFile ? (
+                    <span className="text-sm font-medium text-brand-green">{addonImageFile.name}</span>
+                  ) : (
+                    <>
+                      <Upload className="h-5 w-5 text-muted-foreground" />
+                      <span className="text-sm text-muted-foreground">Upload Item Image</span>
+                      <span className="text-xs text-muted-foreground">PNG, JPG up to 5MB</span>
+                    </>
+                  )}
+                  <input
+                    type="file"
+                    accept="image/*"
+                    className="hidden"
+                    onChange={(e) => setAddonImageFile(e.target.files?.[0] ?? null)}
+                  />
                 </label>
                 <div className="flex items-center gap-3 rounded-xl border border-brand-cream/70 bg-white p-3">
-                  <span className="h-10 w-10 shrink-0 rounded-lg bg-gradient-to-br from-brand-saffron to-brand-red" />
+                  {addonImageFile ? (
+                    <img src={URL.createObjectURL(addonImageFile)} alt="preview" className="h-10 w-10 shrink-0 rounded-lg object-cover" />
+                  ) : (
+                    <span className="h-10 w-10 shrink-0 rounded-lg bg-gradient-to-br from-brand-saffron to-brand-red" />
+                  )}
                   <div className="min-w-0">
-                    <p className="truncate text-sm font-semibold">Item Name</p>
+                    <p className="truncate text-sm font-semibold">{addonForm.name || "Item Name"}</p>
                     <p className="text-xs text-muted-foreground">
-                      <span className="font-semibold text-brand-green">VEG</span> · 1 Serving
+                      <span className="font-semibold text-brand-green">{addonForm.foodType === "veg" ? "VEG" : "NON-VEG"}</span> · {addonForm.quantity} {addonForm.unit}
                     </p>
                   </div>
-                  <span className="ml-auto text-sm font-bold text-brand-red">₹50</span>
+                  <span className="ml-auto text-sm font-bold text-brand-red">₹{addonForm.price || "0"}</span>
                 </div>
               </div>
             </div>
+            {addonMsg && (
+              <p className={`mt-2 text-xs font-medium ${addonMsg.includes("!") ? "text-brand-green" : "text-red-500"}`}>
+                {addonMsg}
+              </p>
+            )}
             <div className="mt-4 flex justify-end gap-2">
-              <Button variant="outline">Cancel</Button>
-              <Button className="bg-brand-orange text-white hover:bg-brand-orange/90">
-                Save Add-on
+              <Button
+                variant="outline"
+                onClick={() => { setAddonForm({ name: "", foodType: "veg", quantity: "1", unit: "Piece", price: "50" }); setAddonImageFile(null); setAddonMsg(""); }}
+              >
+                Cancel
+              </Button>
+              <Button
+                className="bg-brand-orange text-white hover:bg-brand-orange/90"
+                disabled={createAddonMutation.isPending}
+                onClick={handleSaveAddon}
+              >
+                {createAddonMutation.isPending ? "Saving…" : "Save Add-on"}
               </Button>
             </div>
           </div>
