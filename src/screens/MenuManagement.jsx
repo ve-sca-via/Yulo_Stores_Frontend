@@ -115,8 +115,9 @@ export default function MenuManagement() {
   const [addonForm, setAddonForm]       = useState({ name: "", foodType: "veg", quantity: "1", unit: "Piece", price: "50" });
   const [addonImageFile, setAddonImageFile] = useState(null);
   const [addonMsg, setAddonMsg]         = useState("");
+  const [ingredientForm, setIngredientForm] = useState({ name: "", quantity: "0", unit: "gm", cost: "0" });
+  const [ingredientList, setIngredientList] = useState([]);
 
-  const ingredients = [];
   const addons = item.addons ?? [];
 
   async function handleSubmit() {
@@ -132,6 +133,7 @@ export default function MenuManagement() {
     formData.append("categoryId", item.categoryId);
     formData.append("foodType", item.foodType);
     formData.append("prepTime", item.prepTime);
+    formData.append("ingredients", JSON.stringify(ingredientList.map((i) => i.name)));
     if (imageFile) formData.append("image", imageFile);
     try {
       if (item._id) await updateMutation.mutateAsync({ itemId: item._id, formData });
@@ -314,32 +316,38 @@ export default function MenuManagement() {
           <h2 className="text-base font-bold">Ingredients &amp; Food Cost</h2>
         </CardHeader>
         <CardContent className="space-y-5">
-          <Table>
-            <TableHeader>
-              <TableRow className="border-brand-cream/60">
-                <TableHead>Ingredient</TableHead>
-                <TableHead>Quantity</TableHead>
-                <TableHead>Unit</TableHead>
-                <TableHead>Cost</TableHead>
-                <TableHead className="w-10" />
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {ingredients.map((ing) => (
-                <TableRow key={ing.id}>
-                  <TableCell className="font-medium">{ing.name}</TableCell>
-                  <TableCell>{ing.quantity}</TableCell>
-                  <TableCell className="text-muted-foreground">{ing.unit}</TableCell>
-                  <TableCell className="font-semibold">₹{ing.cost}</TableCell>
-                  <TableCell>
-                    <button type="button" className="text-muted-foreground hover:text-brand-maroon">
-                      <Trash2 className="h-4 w-4" />
-                    </button>
-                  </TableCell>
+          {ingredientList.length > 0 && (
+            <Table>
+              <TableHeader>
+                <TableRow className="border-brand-cream/60">
+                  <TableHead>Ingredient</TableHead>
+                  <TableHead>Quantity</TableHead>
+                  <TableHead>Unit</TableHead>
+                  <TableHead>Cost</TableHead>
+                  <TableHead className="w-10" />
                 </TableRow>
-              ))}
-            </TableBody>
-          </Table>
+              </TableHeader>
+              <TableBody>
+                {ingredientList.map((ing) => (
+                  <TableRow key={ing.id}>
+                    <TableCell className="font-medium">{ing.name}</TableCell>
+                    <TableCell>{ing.quantity}</TableCell>
+                    <TableCell className="text-muted-foreground">{ing.unit}</TableCell>
+                    <TableCell className="font-semibold">₹{ing.cost}</TableCell>
+                    <TableCell>
+                      <button
+                        type="button"
+                        className="text-muted-foreground hover:text-brand-maroon"
+                        onClick={() => setIngredientList((l) => l.filter((x) => x.id !== ing.id))}
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </button>
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          )}
 
           <div className="rounded-xl border border-brand-cream/70 bg-[#FCFAF7] p-4">
             <p className="text-sm font-semibold">Add New Ingredient</p>
@@ -349,15 +357,22 @@ export default function MenuManagement() {
             <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
               <div className="space-y-1.5">
                 <Label className="text-xs">Ingredient Name</Label>
-                <Input placeholder="e.g. Basmati Rice" />
+                <Input
+                  placeholder="e.g. Basmati Rice"
+                  value={ingredientForm.name}
+                  onChange={(e) => setIngredientForm((f) => ({ ...f, name: e.target.value }))}
+                />
               </div>
               <div className="space-y-1.5">
                 <Label className="text-xs">Quantity</Label>
-                <Input defaultValue="0" />
+                <Input
+                  value={ingredientForm.quantity}
+                  onChange={(e) => setIngredientForm((f) => ({ ...f, quantity: e.target.value }))}
+                />
               </div>
               <div className="space-y-1.5">
                 <Label className="text-xs">Unit</Label>
-                <Select defaultValue="gm">
+                <Select value={ingredientForm.unit} onValueChange={(v) => setIngredientForm((f) => ({ ...f, unit: v }))}>
                   <SelectTrigger>
                     <SelectValue />
                   </SelectTrigger>
@@ -371,12 +386,27 @@ export default function MenuManagement() {
               </div>
               <div className="space-y-1.5">
                 <Label className="text-xs">Cost</Label>
-                <RupeeInput defaultValue="0" />
+                <RupeeInput
+                  value={ingredientForm.cost}
+                  onChange={(e) => setIngredientForm((f) => ({ ...f, cost: e.target.value }))}
+                />
               </div>
             </div>
             <div className="mt-4 flex justify-end gap-2">
-              <Button variant="outline">Cancel</Button>
-              <Button className="bg-brand-orange text-white hover:bg-brand-orange/90">
+              <Button
+                variant="outline"
+                onClick={() => setIngredientForm({ name: "", quantity: "0", unit: "gm", cost: "0" })}
+              >
+                Cancel
+              </Button>
+              <Button
+                className="bg-brand-orange text-white hover:bg-brand-orange/90"
+                onClick={() => {
+                  if (!ingredientForm.name.trim()) return;
+                  setIngredientList((l) => [...l, { ...ingredientForm, id: Date.now() }]);
+                  setIngredientForm({ name: "", quantity: "0", unit: "gm", cost: "0" });
+                }}
+              >
                 Add Ingredient
               </Button>
             </div>

@@ -37,7 +37,7 @@ export default function StaffManagement() {
     e.preventDefault();
     setFormError("");
     if (form.pin.length < 4) {
-      setFormError("PIN kam se kam 4 digits ka hona chahiye");
+      setFormError("PIN must be at least 4 digits");
       return;
     }
     try {
@@ -63,7 +63,7 @@ export default function StaffManagement() {
   }
 
   async function handleRemove(staffId) {
-    if (!window.confirm("Is staff member ko remove karna chahte ho?")) return;
+    if (!window.confirm("Remove this staff member?")) return;
     try {
       await removeMutation.mutateAsync(staffId);
     } catch { /* silent */ }
@@ -77,7 +77,7 @@ export default function StaffManagement() {
       <div>
         <h1 className="text-2xl font-bold">Staff Management</h1>
         <p className="text-sm text-muted-foreground">
-          Chef aur Waiter add karo. Login ke liye Restaurant ID + PIN chahiye.
+          Add chefs and waiters. Staff need their Restaurant ID and PIN to log in.
         </p>
       </div>
 
@@ -91,7 +91,7 @@ export default function StaffManagement() {
         <CardContent>
           <form onSubmit={handleAdd} className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
             <div className="flex flex-col gap-1.5">
-              <label className="text-sm font-medium">Naam *</label>
+              <label className="text-sm font-medium">Name *</label>
               <input
                 name="name"
                 value={form.name}
@@ -153,21 +153,13 @@ export default function StaffManagement() {
 
             <div className="col-span-full">
               <Button type="submit" disabled={createMutation.isPending}>
-                {createMutation.isPending ? "Adding…" : "Staff Add Karo"}
+                {createMutation.isPending ? "Adding…" : "Add Staff Member"}
               </Button>
             </div>
           </form>
         </CardContent>
       </Card>
 
-      {/* Staff Login Info */}
-      <div className="rounded-xl border border-border bg-muted/40 px-5 py-4 text-sm">
-        <p className="font-semibold">Staff Login kaise kare?</p>
-        <p className="mt-1 text-muted-foreground">
-          URL: <span className="font-mono font-medium">/staff/login</span> &nbsp;→&nbsp;
-          Restaurant ID: <span className="font-mono font-medium select-all">{restaurantId ?? "—"}</span> &nbsp;+&nbsp; uska PIN
-        </p>
-      </div>
 
       {isLoading ? (
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
@@ -183,7 +175,7 @@ export default function StaffManagement() {
               <ChefHat className="h-4 w-4" /> Chefs ({chefs.length})
             </h2>
             {chefs.length === 0 ? (
-              <p className="text-sm text-muted-foreground">Koi chef nahi hai abhi.</p>
+              <p className="text-sm text-muted-foreground">No chefs added yet.</p>
             ) : (
               <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
                 {chefs.map((s) => (
@@ -206,7 +198,7 @@ export default function StaffManagement() {
               <UtensilsCrossed className="h-4 w-4" /> Waiters ({waiters.length})
             </h2>
             {waiters.length === 0 ? (
-              <p className="text-sm text-muted-foreground">Koi waiter nahi hai abhi.</p>
+              <p className="text-sm text-muted-foreground">No waiters added yet.</p>
             ) : (
               <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
                 {waiters.map((s) => (

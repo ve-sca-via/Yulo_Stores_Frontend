@@ -126,6 +126,7 @@ export default function Offers() {
   const publishMutation = usePublishDiscount(restaurantId);
 
   const [form, setForm]               = useState(EMPTY);
+  const [imageFile, setImageFile]     = useState(null);
   const [drafts, setDrafts]           = useState([]);
   const [search, setSearch]           = useState("");
   const [error, setError]             = useState("");
@@ -190,13 +191,25 @@ export default function Offers() {
     }
   }
 
+  function buildFormData(payload, file) {
+    const fd = new FormData();
+    Object.entries(payload).forEach(([k, v]) => {
+      if (Array.isArray(v)) v.forEach((item) => fd.append(k, item));
+      else if (v !== undefined && v !== null) fd.append(k, v);
+    });
+    if (file) fd.append("image", file);
+    return fd;
+  }
+
   async function publish() {
     if (!form.name.trim()) { setError("Add an offer name before publishing"); return; }
     if (!form.validFrom || !form.validTo) { setError("Start date and end date are required"); return; }
     setError("");
     try {
-      await createMutation.mutateAsync(toPayload(form));
+      const payload = toPayload(form);
+      await createMutation.mutateAsync(imageFile ? buildFormData(payload, imageFile) : payload);
       setForm(EMPTY);
+      setImageFile(null);
     } catch (err) {
       setError(err.response?.data?.message ?? err.message);
     }
@@ -431,10 +444,27 @@ export default function Offers() {
               <div className="space-y-1.5">
                 <Label>Offer Image</Label>
                 <label className="flex h-28 cursor-pointer flex-col items-center justify-center gap-1.5 rounded-xl border-2 border-dashed border-[#E2DFDE] bg-[#FCFAF7] text-center text-muted-foreground hover:border-brand-orange/50">
-                  <ImagePlus className="h-5 w-5" />
-                  <span className="text-sm">Click to upload or drag and drop</span>
-                  <span className="text-xs">PNG, JPG up to 2MB</span>
+                  {imageFile ? (
+                    <span className="text-sm font-medium text-brand-green px-4 truncate max-w-full">{imageFile.name}</span>
+                  ) : (
+                    <>
+                      <ImagePlus className="h-5 w-5" />
+                      <span className="text-sm">Click to upload or drag and drop</span>
+                      <span className="text-xs">PNG, JPG up to 5MB</span>
+                    </>
+                  )}
+                  <input
+                    type="file"
+                    accept="image/*"
+                    className="hidden"
+                    onChange={(e) => setImageFile(e.target.files?.[0] ?? null)}
+                  />
                 </label>
+                {imageFile && (
+                  <button type="button" onClick={() => setImageFile(null)} className="text-xs text-muted-foreground hover:text-brand-maroon">
+                    Remove image
+                  </button>
+                )}
               </div>
 
               <div className="space-y-1.5">
@@ -615,7 +645,7 @@ export default function Offers() {
               <div className="flex justify-end gap-2 pt-1">
                 <Button
                   variant="outline"
-                  onClick={() => setForm(EMPTY)}
+                  onClick={() => { setForm(EMPTY); setImageFile(null); }}
                   className="border-transparent bg-transparent text-[#5A403E] hover:bg-transparent hover:text-[#5A403E] focus-visible:ring-0"
                 >
                   Cancel
@@ -648,8 +678,12 @@ export default function Offers() {
             <CardContent className="space-y-5">
               {/* Real-time form preview */}
               <div className="overflow-hidden rounded-2xl border border-dashed border-brand-orange/50">
-                <div className="grid h-32 place-items-center bg-gradient-to-br from-brand-saffron to-brand-red text-white">
-                  <ImagePlus className="h-7 w-7 opacity-80" />
+                <div className="grid h-32 place-items-center bg-gradient-to-br from-brand-saffron to-brand-red text-white overflow-hidden">
+                  {imageFile ? (
+                    <img src={URL.createObjectURL(imageFile)} alt="preview" className="h-full w-full object-cover" />
+                  ) : (
+                    <ImagePlus className="h-7 w-7 opacity-80" />
+                  )}
                 </div>
                 <div className="space-y-2 p-4">
                   <p className="text-lg font-extrabold uppercase text-brand-red">
