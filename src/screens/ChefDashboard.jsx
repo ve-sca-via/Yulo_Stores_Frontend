@@ -474,7 +474,7 @@ export default function ChefDashboard() {
         {/* Preparation Board */}
         <section>
           <h2 className="mb-4 text-xl font-bold">Preparation Board</h2>
-          <div className="grid grid-cols-1 gap-5 lg:grid-cols-3">
+          <div className="grid grid-cols-1 gap-5 lg:grid-cols-2">
             <BoardColumn label="Preparing" count={preparing.length} accent="text-brand-orange" bg="bg-[#FFF5EE]">
               {preparing.map((o) => (
                 <BoardCard key={o.id} order={o} column="preparing" onAction={setStatus} onViewDetails={setViewOrder} />
@@ -490,15 +490,6 @@ export default function ChefDashboard() {
               ))}
               {ready.length === 0 && (
                 <p className="py-6 text-center text-sm text-muted-foreground">No orders ready.</p>
-              )}
-            </BoardColumn>
-
-            <BoardColumn label="Done" count={done.length} accent="text-muted-foreground" bg="bg-[#F5F5F5]">
-              {done.map((o) => (
-                <BoardCard key={o.id} order={o} column="done" onAction={setStatus} onViewDetails={setViewOrder} />
-              ))}
-              {done.length === 0 && (
-                <p className="py-6 text-center text-sm text-muted-foreground">No completed orders.</p>
               )}
             </BoardColumn>
           </div>

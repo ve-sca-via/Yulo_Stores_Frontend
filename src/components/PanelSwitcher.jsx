@@ -92,7 +92,7 @@ export default function PanelSwitcher() {
         : pathname === to || pathname.startsWith(`${to}/`);
 
   return (
-    <div className="fixed bottom-6 right-6 z-[100] flex flex-col items-end gap-3 print:hidden">
+    <div className="fixed bottom-20 right-4 z-[100] flex flex-col items-end gap-3 print:hidden sm:bottom-6 sm:right-6">
       {open ? (
         <div className="w-72 overflow-hidden rounded-2xl border border-brand-cream/70 bg-white shadow-[0_20px_50px_rgba(0,0,0,0.18)]">
           <div className="flex items-center justify-between border-b border-brand-cream/60 bg-[#FAFAF8] px-4 py-3">

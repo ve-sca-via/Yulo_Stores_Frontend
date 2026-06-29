@@ -37,8 +37,8 @@ export const staffApi = {
 
   // POST /api/staff/:restaurantId/waiter/tables/scan
   // body: { qrPayload: string }
-  scanTable: (restaurantId, qrPayload) =>
-    client.post(`/staff/${restaurantId}/waiter/tables/scan`, { qrPayload }, S),
+  scanTable: (restaurantId, qrToken) =>
+    client.post(`/staff/${restaurantId}/waiter/tables/scan`, { qrToken }, S),
 
   // GET /api/staff/:restaurantId/waiter/menu
   getMenu: (restaurantId) =>

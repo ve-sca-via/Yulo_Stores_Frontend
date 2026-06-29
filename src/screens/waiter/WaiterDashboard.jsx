@@ -1,4 +1,4 @@
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { CheckCheck, CheckCircle2, QrCode, UtensilsCrossed, X, XCircle } from "lucide-react";
 import jsQR from "jsqr";
@@ -373,7 +373,8 @@ export default function WaiterDashboard() {
   const { staff } = useStaffAuth();
   const restaurantId = staff?.restaurantId;
 
-  const [activeTable, setActiveTable] = useState(null);
+  const { activeTable, setActiveTable } = useWaiter();
+  const { mutate: scanTable } = useScanTable(restaurantId);
   const [filter, setFilter] = useState("All Orders");
   const [scannerOpen, setScannerOpen] = useState(false);
   const [actionError, setActionError] = useState("");
@@ -393,9 +394,21 @@ export default function WaiterDashboard() {
     })),
   );
 
-  function handleQRScan(value) {
-    const match = String(value).match(/\d+/);
-    if (match) setActiveTable(`T-${match[0]}`);
+  function handleQRScan(url) {
+    try {
+      const tableId = new URL(url).searchParams.get("tableId");
+      if (!tableId) { setActionError("Invalid QR code"); return; }
+      scanTable(tableId, {
+        onSuccess: (res) => {
+          setActiveTable(res.data.data.table.identifier);
+        },
+        onError: (err) => {
+          setActionError(err.response?.data?.message ?? "Invalid QR code");
+        },
+      });
+    } catch {
+      setActionError("Invalid QR code");
+    }
   }
 
   async function handleAction(orderId, status, isPayment = false) {
